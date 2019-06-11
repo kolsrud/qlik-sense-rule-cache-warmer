@@ -114,7 +114,7 @@ namespace RuleCacheWarmer
         private static void PrintUsage()
         {
             var binName = System.AppDomain.CurrentDomain.FriendlyName;
-            Console.WriteLine(@"Usage:    {0} [-u <url>] [-p <port>] [-w <threads>] [-c <path to certs>] <path to users>", binName);
+            Console.WriteLine(@"Usage:    {0} [-u <url>] [-p <port>] [-t <threads>] [-c <path to certs>] <path to users>", binName);
             Console.WriteLine(@"Defaults: <url>     - https://localhost");
             Console.WriteLine(@"          <port>    - 4242");
             Console.WriteLine(@"          <threads> - 2");
