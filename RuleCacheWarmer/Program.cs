@@ -127,9 +127,11 @@ namespace RuleCacheWarmer
 
     class Program
     {
+        const string appTableBody =
+            "{\"entity\":\"App\",\"columns\":[{\"name\":\"id\",\"columnType\":\"Property\",\"definition\":\"id\"},{\"name\":\"privileges\",\"columnType\":\"Privileges\",\"definition\":\"privileges\"},{\"name\":\"name\",\"columnType\":\"Property\",\"definition\":\"name\"},{\"name\":\"owner\",\"columnType\":\"Property\",\"definition\":\"owner\"},{\"name\":\"publishTime\",\"columnType\":\"Property\",\"definition\":\"publishTime\"},{\"name\":\"AppStatuss\",\"columnType\":\"List\",\"definition\":\"AppStatus\",\"list\":[{\"name\":\"statusType\",\"columnType\":\"Property\",\"definition\":\"statusType\"},{\"name\":\"statusValue\",\"columnType\":\"Property\",\"definition\":\"statusValue\"},{\"name\":\"id\",\"columnType\":\"Property\",\"definition\":\"id\"}]},{\"name\":\"stream\",\"columnType\":\"Property\",\"definition\":\"stream\"},{\"name\":\"tags\",\"columnType\":\"List\",\"definition\":\"tag\",\"list\":[{\"name\":\"name\",\"columnType\":\"Property\",\"definition\":\"name\"},{\"name\":\"id\",\"columnType\":\"Property\",\"definition\":\"id\"}]}]}";
+
         static void Main(string[] args)
         {
-
             var flags = new Flags(args);
 
             RestClient.MaximumConcurrentCalls = flags.Threads;
@@ -142,8 +144,9 @@ namespace RuleCacheWarmer
 
                 Console.WriteLine("Connecting to {0}", client.Url);
                 client.Get("/qrs/about");
+                var appCnt = client.Get("/qrs/app/count");
                 Console.WriteLine("Connection successfully established.");
-                Console.WriteLine("Total number of Apps: " + client.Get("/qrs/app/count"));
+                Console.WriteLine("Total number of apps: " + appCnt);
                 if (flags.ClearCache)
                     Console.WriteLine("Clearing repository rules security rules cache." + client.Post("/qrs/systemrule/security/resetcache", ""));
             }
@@ -197,13 +200,15 @@ namespace RuleCacheWarmer
             var user = domainUser.Split('\\')[1];
             var newClient = new RestClient(flags.Uri.AbsoluteUri);
             newClient.AsDirectConnection(domain, user, flags.Port, false, certs);
+            newClient.CustomHeaders.Add("X-Qlik-Security", "SecureRequest=true; Context=ManagementAccess;");
             var sw = new Stopwatch();
             sw.Reset();
             sw.Start();
             var appCnt = await newClient.GetAsync("/qrs/app/count");
+            await newClient.PostAsync("/qrs/App/table?orderAscending=true&skip=0&sortColumn=name&take=200", appTableBody);
             Interlocked.Decrement(ref _notCompleted);
             Interlocked.Increment(ref _completed);
-            Console.WriteLine($"({_running}, {_notCompleted}, {_completed})\tCache warmed for user {domainUser}:\t{appCnt}\t({sw.Elapsed})");
+            Console.WriteLine($"({_running}, {_notCompleted}, {_completed})\tCache warmed for user: {domainUser}\tApps: {appCnt}\t({sw.Elapsed})");
             sw.Stop();
         }
 

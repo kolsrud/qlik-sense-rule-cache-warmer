@@ -34,7 +34,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Qlik.Sense.RestClient, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>packages\QlikSenseRestClient.0.7.1\lib\net452\Qlik.Sense.RestClient.dll</HintPath>
+      <HintPath>packages\QlikSenseRestClient.0.8.0\lib\net452\Qlik.Sense.RestClient.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
