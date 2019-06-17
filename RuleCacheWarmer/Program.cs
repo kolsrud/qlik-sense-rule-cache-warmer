@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Qlik.Sense.RestClient;
@@ -19,6 +17,7 @@ namespace RuleCacheWarmer
         public int Threads { get; }
         public string PathToCerts { get; }
         public string PathToUsers { get; }
+        public string UserPrincipalNameSuffix { get; }
         public bool ClearCache { get; }
 
         public Flags(string[] args)
@@ -26,6 +25,7 @@ namespace RuleCacheWarmer
             Uri = new Uri("https://localhost");
             Port = 4242;
             Threads = 2;
+            UserPrincipalNameSuffix = null;
             for (var i = 0; i < args.Length; i++)
             {
                 switch (args[i])
@@ -40,9 +40,16 @@ namespace RuleCacheWarmer
                         }
                         catch (Exception e)
                         {
-                            Console.WriteLine($"Unable to parse port \"{args[i]}\" as uri: {e.Message}");
+                            Console.WriteLine($"Unable to parse argument \"{args[i]}\" as uri: {e.Message}");
                             PrintUsage();
                         }
+                        break;
+                    case "-n":
+                        i++;
+                        if (i == args.Length)
+                            PrintUsage();
+
+                        UserPrincipalNameSuffix = args[i];
                         break;
                     case "-p":
                         i++;
@@ -105,20 +112,22 @@ namespace RuleCacheWarmer
 
         private void PrintConfiguration()
         {
-            Console.WriteLine($"Configuration used: <url>     - {Uri}");
-            Console.WriteLine($"                    <port>    - {Port}");
-            Console.WriteLine($"                    <threads> - {Threads}");
-            Console.WriteLine($"                    <certs>   - {PathToCerts ?? "Load certificates from store"}");
+            Console.WriteLine($"Configuration used: <url>                        - {Uri}");
+            Console.WriteLine($"                    <user principle name suffix> - {UserPrincipalNameSuffix ?? "<None>"}");
+            Console.WriteLine($"                    <port>                       - {Port}");
+            Console.WriteLine($"                    <threads>                    - {Threads}");
+            Console.WriteLine($"                    <certs>                      - {PathToCerts ?? "Load certificates from store"}");
         }
 
         private static void PrintUsage()
         {
             var binName = System.AppDomain.CurrentDomain.FriendlyName;
-            Console.WriteLine(@"Usage:    {0} [-u <url>] [-p <port>] [-t <threads>] [-c <path to certs>] <path to users>", binName);
-            Console.WriteLine(@"Defaults: <url>     - https://localhost");
-            Console.WriteLine(@"          <port>    - 4242");
-            Console.WriteLine(@"          <threads> - 2");
-            Console.WriteLine(@"          <certs>   - load from store instead of file");
+            Console.WriteLine(@"Usage:    {0} [-u <url>] [-n <user principle name suffix>] [-p <port>] [-t <threads>] [-c <path to certs>] <path to users>", binName);
+            Console.WriteLine(@"Defaults: <url>                        - https://localhost");
+            Console.WriteLine(@"          <user principle name suffix> - None");
+            Console.WriteLine(@"          <port>                       - 4242");
+            Console.WriteLine(@"          <threads>                    - 2");
+            Console.WriteLine(@"          <certs>                      - load from store instead of file");
             Console.WriteLine(@"Example:  {0} -u https://my.server.url -p 4242 -c C:\Tmp\Certs C:\Tmp\Users.txt", binName);
             Console.WriteLine(@"          {0} C:\Tmp\Users.txt", binName);
             Environment.Exit(1);
@@ -144,6 +153,8 @@ namespace RuleCacheWarmer
 
                 Console.WriteLine("Connecting to {0}", client.Url);
                 client.Get("/qrs/about");
+                Console.Write(client.Get("/qrs/internal/management/record"));
+                client.Post("/qrs/internal/management/record/enable", "");
                 var appCnt = client.Get("/qrs/app/count");
                 Console.WriteLine("Connection successfully established.");
                 Console.WriteLine("Total number of apps: " + appCnt);
@@ -200,7 +211,10 @@ namespace RuleCacheWarmer
             var user = domainUser.Split('\\')[1];
             var newClient = new RestClient(flags.Uri.AbsoluteUri);
             newClient.AsDirectConnection(domain, user, flags.Port, false, certs);
-            newClient.CustomHeaders.Add("X-Qlik-Security", "SecureRequest=true; Context=ManagementAccess;");
+            var securityHeader = "SecureRequest=true; LicenseContext=UserAccess; Context=ManagementAccess;";
+            if (flags.UserPrincipalNameSuffix != null)
+                securityHeader = $"{securityHeader} UserPrincipleName={user.ToUpper()}{flags.UserPrincipalNameSuffix};";
+            newClient.CustomHeaders.Add("X-Qlik-Security", securityHeader);
             var sw = new Stopwatch();
             sw.Reset();
             sw.Start();
