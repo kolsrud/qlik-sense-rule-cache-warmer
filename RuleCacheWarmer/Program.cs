@@ -153,8 +153,6 @@ namespace RuleCacheWarmer
 
                 Console.WriteLine("Connecting to {0}", client.Url);
                 client.Get("/qrs/about");
-                Console.Write(client.Get("/qrs/internal/management/record"));
-                client.Post("/qrs/internal/management/record/enable", "");
                 var appCnt = client.Get("/qrs/app/count");
                 Console.WriteLine("Connection successfully established.");
                 Console.WriteLine("Total number of apps: " + appCnt);
